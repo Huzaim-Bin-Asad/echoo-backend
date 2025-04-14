@@ -24,6 +24,38 @@ app.use(express.json());
 // Setup Multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
+
+app.post('/check-credentials', async (req, res) => {
+  const { email, username, buttonId } = req.body;
+
+  if (buttonId !== 'case2') {
+    return res.status(403).json({ message: 'Unauthorized request source.' });
+  }
+
+  const errors = {};
+
+  try {
+    const emailCheck = await pool.query('SELECT user_id FROM users WHERE email = $1', [email]);
+    if (emailCheck.rows.length > 0) {
+      errors.email = 'Email already exists.';
+    }
+
+    const usernameCheck = await pool.query('SELECT user_id FROM users WHERE username = $1', [username]);
+    if (usernameCheck.rows.length > 0) {
+      errors.username = 'Username already exists.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({ errors });
+    }
+
+    res.status(200).json({ message: 'Email and Username are available.' });
+  } catch (err) {
+    console.error('[CHECK CREDENTIALS] Error:', err);
+    res.status(500).json({ message: 'Server error while checking credentials.' });
+  }
+});
+
 // Signup Route with automatic login
 app.post('/signup', upload.single('profilePicture'), async (req, res) => {
   const { firstName, lastName, email, username, password, gender } = req.body;
