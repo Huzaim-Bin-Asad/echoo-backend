@@ -1,38 +1,73 @@
 require('dotenv').config();
-const { Pool } = require('pg');
+console.log("DB connection string:", process.env.DB_CONNECTION_STRING); // <-- Debug line
 
-// Setup PostgreSQL connection
+const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
 const pool = new Pool({
   connectionString: process.env.DB_CONNECTION_STRING
 });
 
-// Function to create the 'users' table
+// Create users table with UUID and encrypted password
 const createUsersTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
+      user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       first_name VARCHAR(255) NOT NULL,
       last_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
       username VARCHAR(255) UNIQUE NOT NULL,
-      password VARCHAR(255) NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
       gender VARCHAR(10),
       profile_picture VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
 
   try {
-    const client = await pool.connect();
-    await client.query(query);
+    await pool.query(query);
     console.log('Users table created successfully');
-    client.release();
   } catch (err) {
     console.error('Error creating table:', err);
   }
 };
 
-// Call the function to create the table
-createUsersTable().then(() => {
-  pool.end();  // Close the connection pool after the operation
-});
+// Generate JWT token
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      user_id: user.user_id,
+      username: user.username
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+};
+
+// Hash password
+const hashPassword = async (password) => {
+  const saltRounds = 10;
+  return await bcrypt.hash(password, saltRounds);
+};
+
+// Verify password
+const verifyPassword = async (password, hash) => {
+  return await bcrypt.compare(password, hash);
+};
+
+// Initialize the database
+const initializeDb = async () => {
+  await createUsersTable();
+};
+
+module.exports = {
+  pool,
+  generateToken,
+  hashPassword,
+  verifyPassword,
+  initializeDb
+};
+
+initializeDb();
