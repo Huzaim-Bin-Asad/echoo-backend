@@ -50,6 +50,9 @@ app.post('/signup', upload.single('profilePicture'), async (req, res) => {
       username: user.username
     });
 
+    console.log('[LOGIN] JWT token generated:', token); // ✅ Add this line
+
+
     res.status(201).json({
       message: 'Signup and login successful',
       user,
@@ -85,18 +88,21 @@ app.post('/login', async (req, res) => {
 
     if (result.rows.length === 0) {
       console.warn('[LOGIN] No user found with identifier:', identifier);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ 
+        message: 'Email or username not found',
+        errorType: 'user_not_found' 
+      });
     }
 
     const user = result.rows[0];
-    console.log('[LOGIN] User found:', user.username);
-
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-    console.log('[LOGIN] Password valid:', isPasswordValid);
 
     if (!isPasswordValid) {
       console.warn('[LOGIN] Invalid password for user:', user.username);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ 
+        message: 'Password is incorrect',
+        errorType: 'wrong_password'
+      });
     }
 
     const token = generateToken({
@@ -113,22 +119,32 @@ app.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error('[LOGIN] Login error:', err);
-    res.status(500).json({ message: 'Login failed', error: err.message });
+    res.status(500).json({ 
+      message: 'Login failed. Please try again later.',
+      errorType: 'server_error'
+    });
   }
 });
-
-// Protected Profile Route
+// Protected Profile Route with enhanced JWT logging
 app.get('/profile', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  console.log('[PROFILE] Authorization header:', authHeader);
+
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      console.warn('[PROFILE] No token provided');
+    if (!authHeader) {
+      console.warn('[PROFILE] No Authorization header present');
       return res.status(401).json({ message: 'Authentication required' });
     }
 
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+      console.warn('[PROFILE] Bearer token missing from header');
+      return res.status(401).json({ message: 'Authentication token missing' });
+    }
+
+    console.log('[PROFILE] Verifying token...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('[PROFILE] Token decoded:', decoded);
+    console.log('[PROFILE] Token successfully decoded:', decoded);
 
     const result = await pool.query(
       `SELECT user_id, username, email, first_name, last_name, gender, profile_picture
@@ -138,13 +154,14 @@ app.get('/profile', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      console.warn('[PROFILE] User not found for ID:', decoded.user_id);
+      console.warn('[PROFILE] No user found for user_id:', decoded.user_id);
       return res.status(404).json({ message: 'User not found' });
     }
 
+    console.log('[PROFILE] User fetched successfully for:', decoded.username || decoded.user_id);
     res.status(200).json(result.rows[0]);
   } catch (err) {
-    console.error('[PROFILE] Error:', err);
+    console.error('[PROFILE] Error verifying or decoding JWT:', err);
 
     if (err.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Invalid token' });
@@ -157,6 +174,7 @@ app.get('/profile', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
 
 // Start Server
 const port = process.env.PORT || 5000;
