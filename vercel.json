@@ -42,11 +42,16 @@
       },
       {
         "src": "/(.*)",
-        "dest": "/login.js",
-        "status": 404
+        "dest": "/login.js"
       }
     ],
     "env": {
       "NODE_ENV": "production"
-    }
+    },
+    "rewrites": [
+      {
+        "source": "/",
+        "destination": "/login.js"
+      }
+    ]
   }
