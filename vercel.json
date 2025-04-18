@@ -1,57 +1,8 @@
 {
-    "version": 2,
-    "builds": [
-      {
-        "src": "api/**/*.js",
-        "use": "@vercel/node"
-      },
-      {
-        "src": "login.js",
-        "use": "@vercel/node"
-      },
-      {
-        "src": "db-create.js",
-        "use": "@vercel/node"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/api/auth/check-credentials",
-        "dest": "/api/auth/check-credentials.js",
-        "methods": ["POST"]
-      },
-      {
-        "src": "/api/auth/signup",
-        "dest": "/api/auth/signup.js",
-        "methods": ["POST"]
-      },
-      {
-        "src": "/api/auth/login",
-        "dest": "/api/auth/login.js",
-        "methods": ["POST"]
-      },
-      {
-        "src": "/api/profile",
-        "dest": "/api/profile.js",
-        "methods": ["GET"]
-      },
-      {
-        "src": "/db-create",
-        "dest": "/db-create.js",
-        "methods": ["POST"]
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/login.js"
-      }
-    ],
-    "env": {
-      "NODE_ENV": "production"
-    },
-    "rewrites": [
-      {
-        "source": "/",
-        "destination": "/login.js"
-      }
-    ]
-  }
+  "version": 2,
+  "builds": [
+    { "src": "login.js", "use": "@vercel/node" } 
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "login.js" }       ]
+}
