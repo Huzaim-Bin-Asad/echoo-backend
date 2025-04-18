@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { pool, generateToken, hashPassword } = require('./db-create');
+const { pool, generateToken, hashPassword } = require('../db-create');
 const multer = require('multer');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
