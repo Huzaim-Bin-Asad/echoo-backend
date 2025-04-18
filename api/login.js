@@ -2,17 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const { pool, generateToken, hashPassword } = require('./db-create');
 const multer = require('multer');
-const path = require('path');
 const cors = require('cors');
-const bcrypt = require('bcrypt'); // ✅ FIXED: bcrypt was missing
-const jwt = require('jsonwebtoken'); // ✅ Required for profile route token decoding
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 // Initialize Express app
 const app = express();
 
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // allow both
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'YOUR_VERCEL_APP_URL'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -21,9 +20,23 @@ app.use(cors({
 // Middleware for parsing JSON bodies
 app.use(express.json());
 
-// Setup Multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+// Serverless-compatible multer configuration (memory storage)
+const storage = multer.memoryStorage(); // Store files in memory
+const upload = multer({ storage });
 
+// Database connection wrapper for serverless
+const withDB = async (handler) => {
+  let client;
+  try {
+    client = await pool.connect();
+    return await handler(client);
+  } catch (error) {
+    console.error('Database error:', error);
+    throw error;
+  } finally {
+    if (client) client.release();
+  }
+};
 
 app.post('/check-credentials', async (req, res) => {
   const { email, username, buttonId } = req.body;
@@ -35,75 +48,68 @@ app.post('/check-credentials', async (req, res) => {
   const errors = {};
 
   try {
-    const emailCheck = await pool.query('SELECT user_id FROM users WHERE email = $1', [email]);
-    if (emailCheck.rows.length > 0) {
-      errors.email = 'Email already exists.';
-    }
+    await withDB(async (client) => {
+      const emailCheck = await client.query('SELECT user_id FROM users WHERE email = $1', [email]);
+      if (emailCheck.rows.length > 0) errors.email = 'Email already exists.';
 
-    const usernameCheck = await pool.query('SELECT user_id FROM users WHERE username = $1', [username]);
-    if (usernameCheck.rows.length > 0) {
-      errors.username = 'Username already exists.';
-    }
+      const usernameCheck = await client.query('SELECT user_id FROM users WHERE username = $1', [username]);
+      if (usernameCheck.rows.length > 0) errors.username = 'Username already exists.';
+    });
 
     if (Object.keys(errors).length > 0) {
       return res.status(400).json({ errors });
     }
 
-    res.status(200).json({ message: 'Email and Username are available.' });
+    res.status(200).json({ message: 'Credentials available' });
   } catch (err) {
-    console.error('[CHECK CREDENTIALS] Error:', err);
-    res.status(500).json({ message: 'Server error while checking credentials.' });
+    console.error('Error checking credentials:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Signup Route with automatic login
 app.post('/signup', upload.single('profilePicture'), async (req, res) => {
   const { firstName, lastName, email, username, password, gender } = req.body;
-  const profilePicture = req.file ? req.file.filename : null;
-
-  console.log('[SIGNUP] Received data:', { firstName, lastName, email, username, gender });
+  
+  // Handle file upload - convert buffer to base64 for serverless
+  const profilePicture = req.file 
+    ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+    : null;
 
   try {
     const passwordHash = await hashPassword(password);
-    console.log('[SIGNUP] Password hashed');
-
-    const result = await pool.query(
-      `INSERT INTO users (first_name, last_name, email, username, password_hash, gender, profile_picture) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING user_id, username, email, first_name, last_name, gender, profile_picture`,
-      [firstName, lastName, email, username, passwordHash, gender, profilePicture]
-    );
-
-    const user = result.rows[0];
-    console.log('[SIGNUP] User created:', user);
+    
+    const user = await withDB(async (client) => {
+      const result = await client.query(
+        `INSERT INTO users (first_name, last_name, email, username, password_hash, gender, profile_picture) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING user_id, username, email, first_name, last_name, gender, profile_picture`,
+        [firstName, lastName, email, username, passwordHash, gender, profilePicture]
+      );
+      return result.rows[0];
+    });
 
     const token = generateToken({
       user_id: user.user_id,
       username: user.username
     });
 
-    console.log('[LOGIN] JWT token generated:', token); // ✅ Add this line
-
-
     res.status(201).json({
-      message: 'Signup and login successful',
+      message: 'Signup successful',
       user,
       token
     });
   } catch (err) {
-    console.error('[SIGNUP] Database error:', err);
-
+    console.error('Signup error:', err);
+    
     if (err.code === '23505') {
       const field = err.constraint.includes('email') ? 'email' : 'username';
-      return res.status(400).json({ 
-        message: `${field} already exists`,
-        field
-      });
+      return res.status(400).json({ message: `${field} already exists` });
     }
-
-    res.status(500).json({ message: 'Signup failed', error: err.message });
+    
+    res.status(500).json({ message: 'Signup failed' });
   }
 });
+
 
 // Login Route with detailed logging
 app.post('/login', async (req, res) => {
@@ -209,7 +215,4 @@ app.get('/profile', async (req, res) => {
 
 
 // Start Server
-const port = process.env.PORT || 5000;
-app.listen(port, () => {
-  console.log(`✅ Server running on port ${port}`);
-});
+module.exports = app;
