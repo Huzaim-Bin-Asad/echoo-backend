@@ -26,10 +26,12 @@ app.get('/', (req, res) => {
       auth: {
         signup: 'POST /signup',
         login: 'POST /login',
-        profile: 'GET /profile'
+        profile: 'GET /profile',
+        checkCredentials: 'POST /check-credentials'  // Added this line
       },
       status: 'GET /status'
-    }
+    },
+    note: 'For check-credentials, include { email, username, buttonId } in the request body'
   });
 });
 
@@ -139,33 +141,25 @@ app.post('/signup', upload.single('profilePicture'), async (req, res) => {
 // Login Route with detailed logging
 app.post('/login', async (req, res) => {
   const { identifier, password } = req.body;
-  console.log('[LOGIN] Attempting login for:', identifier);
-
+  
   try {
-    const result = await pool.query(
-      `SELECT user_id, username, email, first_name, last_name, password_hash 
-       FROM users 
-       WHERE email = $1 OR username = $1`,
-      [identifier]
-    );
+    const user = await withDB(async (client) => {
+      const result = await client.query(
+        `SELECT user_id, username, email, first_name, last_name, password_hash 
+         FROM users 
+         WHERE email = $1 OR username = $1`,
+        [identifier]
+      );
+      return result.rows[0];
+    });
 
-    if (result.rows.length === 0) {
-      console.warn('[LOGIN] No user found with identifier:', identifier);
-      return res.status(401).json({ 
-        message: 'Email or username not found',
-        errorType: 'user_not_found' 
-      });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const user = result.rows[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      console.warn('[LOGIN] Invalid password for user:', user.username);
-      return res.status(401).json({ 
-        message: 'Password is incorrect',
-        errorType: 'wrong_password'
-      });
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const token = generateToken({
@@ -174,18 +168,11 @@ app.post('/login', async (req, res) => {
     });
 
     delete user.password_hash;
+    res.json({ user, token });
 
-    res.status(200).json({
-      message: 'Login successful',
-      user,
-      token
-    });
   } catch (err) {
-    console.error('[LOGIN] Login error:', err);
-    res.status(500).json({ 
-      message: 'Login failed. Please try again later.',
-      errorType: 'server_error'
-    });
+    console.error('Login error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 // Protected Profile Route with enhanced JWT logging

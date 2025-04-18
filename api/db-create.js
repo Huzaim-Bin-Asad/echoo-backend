@@ -1,29 +1,22 @@
 require('dotenv').config();
-
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// Enhanced connection configuration for serverless
+// Enhanced pool configuration for Neon PostgreSQL
 const pool = new Pool({
   connectionString: process.env.DB_CONNECTION_STRING,
-  // Serverless-optimized pool settings
-  max: 5,                 // Maximum number of clients in the pool
-  min: 1,                 // Minimum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle
-  connectionTimeoutMillis: 2000, // Time to wait for connection
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: {
+    rejectUnauthorized: false // Required for Neon.tech
+  },
+  max: 5, // Recommended for serverless
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
 });
 
-// Debug connection
-console.log("DB connection configured with:", {
-  host: pool.options.host,
-  database: pool.options.database,
-  user: pool.options.user,
-  poolSize: `${pool.options.max} connections`
-});
+console.log('Database pool created with Neon.tech connection');
 
-// Create users table with UUID and encrypted password
+// Create users table with Neon-compatible SQL
 const createUsersTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS users (
@@ -34,88 +27,53 @@ const createUsersTable = async () => {
       username VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       gender VARCHAR(10),
-      profile_picture TEXT,  -- Changed to TEXT to store base64 encoded images
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      profile_picture TEXT, -- Using TEXT for base64 storage
+      created_at TIMESTAMPTZ DEFAULT NOW(), -- Using TIMESTAMPTZ for Neon
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
     
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
   `;
 
-  let client;
   try {
-    client = await pool.connect();
-    await client.query(query);
-    console.log('✔ Users table and indexes created/verified');
+    await pool.query(query);
+    console.log('Users table verified/created in Neon PostgreSQL');
   } catch (err) {
-    console.error('❌ Error creating table:', err.message);
-    throw err; // Rethrow to handle in initialization
-  } finally {
-    if (client) client.release();
+    console.error('Error creating table:', err);
+    throw err;
   }
 };
 
-// Enhanced token generation with refresh token support
+// Generate JWT token (Neon-compatible)
 const generateToken = (user) => {
-  const accessToken = jwt.sign(
+  return jwt.sign(
     {
       user_id: user.user_id,
       username: user.username
     },
     process.env.JWT_SECRET,
-    { expiresIn: '15m' }  // Shorter expiry for security
+    { expiresIn: '24h' }
   );
-
-  const refreshToken = jwt.sign(
-    { user_id: user.user_id },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: '7d' }
-  );
-
-  return { accessToken, refreshToken };
 };
 
-// More secure password hashing
+// Hash password
 const hashPassword = async (password) => {
+  const saltRounds = 10;
+  return await bcrypt.hash(password, saltRounds);
+};
+
+// Initialize the database
+const initializeDb = async () => {
   try {
-    const saltRounds = 12; // Increased for better security
-    return await bcrypt.hash(password, saltRounds);
+    await createUsersTable();
   } catch (err) {
-    console.error('Password hashing error:', err);
-    throw new Error('Could not hash password');
+    console.error('Database initialization failed:', err);
+    process.exit(1);
   }
 };
 
-// Secure password verification
-const verifyPassword = async (password, hash) => {
-  try {
-    return await bcrypt.compare(password, hash);
-  } catch (err) {
-    console.error('Password verification error:', err);
-    throw new Error('Could not verify password');
-  }
-};
-
-// Initialize the database with retry logic
-const initializeDb = async (retries = 3, delay = 1000) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      await createUsersTable();
-      console.log('Database initialized successfully');
-      return;
-    } catch (err) {
-      if (i === retries - 1) {
-        console.error(`Failed to initialize database after ${retries} attempts`);
-        throw err;
-      }
-      console.log(`Retrying database initialization (${i + 1}/${retries})...`);
-      await new Promise(res => setTimeout(res, delay));
-    }
-  }
-};
-
-// Serverless connection handling
+// Serverless connection helper
 const withDB = async (handler) => {
   let client;
   try {
@@ -133,15 +91,11 @@ module.exports = {
   pool,
   generateToken,
   hashPassword,
-  verifyPassword,
   initializeDb,
-  withDB  // Added for serverless operations
+  withDB
 };
 
-// Initialize only if not in serverless environment
-if (process.env.VERCEL !== '1') {
-  initializeDb().catch(err => {
-    console.error('Database initialization failed:', err);
-    process.exit(1);
-  });
+// Initialize if not in production (for dev/testing)
+if (process.env.NODE_ENV !== 'production') {
+  initializeDb();
 }
