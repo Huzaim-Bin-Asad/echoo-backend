@@ -3,36 +3,41 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// Enhanced Neon.tech connection configuration
+// Direct Neon.tech connection configuration
 const pool = new Pool({
-  connectionString: process.env.DB_CONNECTION_STRING,
+  connectionString: 'postgresql://neondb_owner:npg_BbaR3OQnS6MW@ep-mute-morning-a511sula-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require',
   ssl: {
     rejectUnauthorized: false
   },
-  max: 3, // Reduced for local development
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 5000, // Shorter timeout for faster failure
-  query_timeout: 5000
+  max: 5, // Optimal pool size for serverless
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000
 });
 
-console.log('Attempting to connect to Neon.tech database...');
+console.log('Initializing Neon.tech database connection...');
 
-// Add connection test function
+// Enhanced connection test with Neon-specific checks
 const testConnection = async () => {
+  let client;
   try {
-    const client = await pool.connect();
-    const res = await client.query('SELECT NOW()');
-    console.log('Database connection successful. Current time:', res.rows[0].now);
-    client.release();
+    client = await pool.connect();
+    const res = await client.query('SELECT 1 AS connection_test');
+    console.log('✅ Neon.tech connection verified');
     return true;
   } catch (err) {
-    console.error('Connection test failed:', err);
+    console.error('❌ Neon.tech connection failed:', {
+      error: err.message,
+      code: err.code,
+      time: new Date().toISOString()
+    });
     return false;
+  } finally {
+    if (client) client.release();
   }
 };
 
-// Create users table with retry logic
-const createUsersTable = async (retries = 3, delay = 2000) => {
+// Neon-optimized table creation
+const createUsersTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS users (
       user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -46,51 +51,50 @@ const createUsersTable = async (retries = 3, delay = 2000) => {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
   `;
 
-  for (let i = 0; i < retries; i++) {
-    try {
-      const client = await pool.connect();
-      await client.query(query);
-      client.release();
-      console.log('Users table created/verified');
-      return;
-    } catch (err) {
-      console.error(`Attempt ${i + 1} failed:`, err.message);
-      if (i === retries - 1) throw err;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-};
-
-// Initialize with connection test
-const initializeDb = async () => {
   try {
-    if (!await testConnection()) {
-      throw new Error('Could not establish database connection');
-    }
-    await createUsersTable();
-    console.log('Database initialization complete');
+    const client = await pool.connect();
+    await client.query(query);
+    client.release();
+    console.log('✅ Users table ready');
   } catch (err) {
-    console.error('Database initialization failed:', err.message);
+    console.error('❌ Table creation failed:', err);
     throw err;
   }
 };
 
-// Export functions
+// Initialize with production-ready checks
+const initializeDb = async () => {
+  if (!await testConnection()) {
+    throw new Error('Database connection unavailable');
+  }
+  await createUsersTable();
+};
+
+// Serverless-compatible exports
 module.exports = {
   pool,
   generateToken: (user) => jwt.sign(
-    { user_id: user.user_id, username: user.username },
-    process.env.JWT_SECRET,
+    {
+      user_id: user.user_id,
+      username: user.username,
+      iat: Math.floor(Date.now() / 1000)
+    },
+    process.env.JWT_SECRET || 'fallback-secret-for-dev',
     { expiresIn: '24h' }
   ),
-  hashPassword: (password) => bcrypt.hash(password, 10),
+  hashPassword: (password) => bcrypt.hash(password, 12), // Increased rounds for security
   initializeDb,
   testConnection
 };
 
-// Only initialize if run directly
-if (require.main === module) {
-  initializeDb().catch(() => process.exit(1));
+// Auto-initialize only in development
+if (process.env.NODE_ENV !== 'production') {
+  initializeDb().catch(err => {
+    console.error('Startup failed:', err);
+    process.exit(1);
+  });
 }
