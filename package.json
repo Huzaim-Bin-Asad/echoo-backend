@@ -24,7 +24,6 @@
     "morgan": "^1.10.0",
     "rate-limit": "^1.2.0"
   },
-
   "engines": {
     "node": ">=18.x",
     "npm": ">=9.x"
