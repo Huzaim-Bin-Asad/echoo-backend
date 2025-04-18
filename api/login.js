@@ -17,6 +17,31 @@ app.use(cors({
   credentials: true
 }));
 
+
+// Add this near the end of your file, before the export
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Welcome to the API',
+    endpoints: {
+      auth: {
+        signup: 'POST /signup',
+        login: 'POST /login',
+        profile: 'GET /profile'
+      },
+      status: 'GET /status'
+    }
+  });
+});
+
+// Add a status endpoint
+app.get('/status', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Middleware for parsing JSON bodies
 app.use(express.json());
 
