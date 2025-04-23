@@ -4,15 +4,13 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 // Direct Neon.tech connection configuration
-const pool = new Pool({
-  connectionString: 'postgresql://neondb_owner:npg_BbaR3OQnS6MW@ep-mute-morning-a511sula-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require',
-  ssl: {
-    rejectUnauthorized: false
-  },
-  max: 5, // Optimal pool size for serverless
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000
-});
+  const pool = new Pool({
+    connectionString: process.env.DB_CONNECTION_STRING,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  });
+
 
 console.log('Initializing Neon.tech database connection...');
 
@@ -37,7 +35,7 @@ const testConnection = async () => {
 };
 
 // Neon-optimized table creation
-const createUsersTable = async () => {
+const createTables = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS users (
       user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,6 +51,30 @@ const createUsersTable = async () => {
     );
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+    CREATE TABLE IF NOT EXISTS chat_previews (
+      chat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+      contact_name VARCHAR(255) NOT NULL,
+      last_message TEXT,
+      last_message_time TIMESTAMPTZ DEFAULT NOW(),
+      unread_count INT DEFAULT 0,
+      avatar_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_previews_user ON chat_previews(user_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_previews_time ON chat_previews(last_message_time DESC);
+
+    CREATE TABLE IF NOT EXISTS contacts (
+      contact_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+      contact_name VARCHAR(255) NOT NULL,
+      contact_message TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    
+    );
+    CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(contact_name);
   `;
 
   try {
@@ -71,30 +93,35 @@ const initializeDb = async () => {
   if (!await testConnection()) {
     throw new Error('Database connection unavailable');
   }
-  await createUsersTable();
+  await createTables();
 };
 
-// Serverless-compatible exports
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET is not defined in .env');
+  process.exit(1);
+}
+
 module.exports = {
   pool,
-  generateToken: (user) => jwt.sign(
-    {
-      user_id: user.user_id,
-      username: user.username,
-      iat: Math.floor(Date.now() / 1000)
-    },
-    process.env.JWT_SECRET || 'fallback-secret-for-dev',
-    { expiresIn: '24h' }
-  ),
-  hashPassword: (password) => bcrypt.hash(password, 12), // Increased rounds for security
+  generateToken: (user) =>
+    jwt.sign(
+      {
+        user_id: user.user_id,
+        username: user.username,
+        iat: Math.floor(Date.now() / 1000),
+      },
+      process.env.JWT_SECRET, // ✅ no fallback!
+      { expiresIn: '24h' }
+    ),
+  hashPassword: (password) => bcrypt.hash(password, 12), // 🔐 more secure
   initializeDb,
-  testConnection
+  testConnection,
 };
 
-// Auto-initialize only in development
+// Optional dev DB auto-init
 if (process.env.NODE_ENV !== 'production') {
-  initializeDb().catch(err => {
-    console.error('Startup failed:', err);
+  initializeDb().catch((err) => {
+    console.error('❌ Startup failed:', err);
     process.exit(1);
   });
 }

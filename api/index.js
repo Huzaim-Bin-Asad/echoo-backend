@@ -5,6 +5,7 @@ const multer = require('multer');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const userInfoRoutes = require('./userInfo');
 
 // Initialize Express app
 const app = express();
@@ -228,6 +229,8 @@ app.get('/profile', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
+app.use('/api', userInfoRoutes); // <--- Make sure this is added
 
 
 // Start Server
