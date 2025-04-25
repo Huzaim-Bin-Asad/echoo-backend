@@ -11,8 +11,7 @@ router.get('/userinfo', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Token missing' });
 
-    console.log("🧪 Incoming token:", token);
-    console.log("🧪 Using secret:", JWT_SECRET);
+    
 
     // Verify the token
     const decoded = jwt.verify(token, JWT_SECRET);

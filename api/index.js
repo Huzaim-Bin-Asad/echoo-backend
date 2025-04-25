@@ -6,6 +6,7 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userInfoRoutes = require('./userInfo');
+const addContactRoutes = require('./addContact'); // Import the addContact route
 
 // Initialize Express app
 const app = express();
@@ -34,7 +35,10 @@ app.get('/', (req, res) => {
         profile: 'GET /profile',
         checkCredentials: 'POST /check-credentials'  // Added this line
       },
-      status: 'GET /status'
+      status: 'GET /status',
+      contacts: {
+        addContact: 'POST /api/add-contact',  // Endpoint for adding contacts
+      },
     },
     note: 'For check-credentials, include { email, username, buttonId } in the request body'
   });
@@ -231,6 +235,7 @@ app.get('/profile', async (req, res) => {
 });
 
 app.use('/api', userInfoRoutes); // <--- Make sure this is added
+app.use('/api', addContactRoutes);  // Add the new addContact route
 
 
 // Start Server

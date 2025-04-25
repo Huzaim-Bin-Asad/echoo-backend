@@ -3,7 +3,6 @@
 require('dotenv').config(); // Load env vars
 const app = require('./api/index'); // Import the Express app
 const { initializeDb } = require('./db-create'); // Ensure DB setup on start
-// const userInfoRoutes = require('./api/userInfo'); ❌ Not needed here
 
 const PORT = process.env.PORT || 5000;
 
