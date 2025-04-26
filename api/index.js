@@ -101,21 +101,23 @@ app.post('/check-credentials', async (req, res) => {
 
 app.post('/signup', upload.single('profilePicture'), async (req, res) => {
   const { firstName, lastName, email, username, password, gender } = req.body;
-  
+
   // Handle file upload - convert buffer to base64 for serverless
   const profilePicture = req.file 
     ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
     : null;
+
+  const aboutMessage = "Ready to Echoo"; // 🆕 Default about message
 
   try {
     const passwordHash = await hashPassword(password);
     
     const user = await withDB(async (client) => {
       const result = await client.query(
-        `INSERT INTO users (first_name, last_name, email, username, password_hash, gender, profile_picture) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7) 
-         RETURNING user_id, username, email, first_name, last_name, gender, profile_picture`,
-        [firstName, lastName, email, username, passwordHash, gender, profilePicture]
+        `INSERT INTO users (first_name, last_name, email, username, password_hash, gender, profile_picture, about_message) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+         RETURNING user_id, username, email, first_name, last_name, gender, profile_picture, about_message`,
+        [firstName, lastName, email, username, passwordHash, gender, profilePicture, aboutMessage]
       );
       return result.rows[0];
     });

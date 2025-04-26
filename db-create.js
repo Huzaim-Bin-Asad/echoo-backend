@@ -42,6 +42,7 @@ const createTables = async () => {
       first_name VARCHAR(255) NOT NULL,
       last_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
+        about_message TEXT, -- 🆕 Added about_message field,
       username VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       gender VARCHAR(10),
