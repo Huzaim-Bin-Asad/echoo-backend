@@ -68,6 +68,7 @@ const createTables = async () => {
     CREATE TABLE IF NOT EXISTS contacts (
       contact_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+      contacted_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
       contact_name VARCHAR(255) NOT NULL,
       contact_message TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
