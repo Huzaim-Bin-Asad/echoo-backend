@@ -7,33 +7,41 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 router.get('/userinfo', async (req, res) => {
   try {
-    // Retrieve the token from the Authorization header
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Token missing' });
 
-    // Verify the token
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.user_id;
 
-    // Query to get user data and related chat previews and contacts
+    // Query user basic data
     const userQuery = await pool.query(`
       SELECT 
-        u.user_id, u.first_name, u.last_name, u.email, u.username, u.gender, 
-        u.profile_picture, u.created_at, u.updated_at, u.about_message, -- 🆕 Added about_message
-        cp.chat_id, cp.contact_name AS chat_contact_name, cp.last_message, cp.last_message_time, cp.unread_count, cp.avatar_url AS chat_avatar_url,
-        c.contact_id, c.contact_name AS contact_name, c.contact_message, c.created_at AS contact_created_at
-      FROM users u
-      LEFT JOIN chat_previews cp ON u.user_id = cp.user_id
-      LEFT JOIN contacts c ON u.user_id = c.user_id
-      WHERE u.user_id = $1;
+        user_id, first_name, last_name, email, username, gender, 
+        profile_picture, created_at, updated_at, about_message
+      FROM users
+      WHERE user_id = $1;
     `, [userId]);
+
+    if (!userQuery.rows.length) return res.status(404).json({ error: 'User not found' });
 
     const user = userQuery.rows[0];
 
-    // Check if user exists
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    // Query chat_previews separately
+    const chatPreviewsQuery = await pool.query(`
+      SELECT 
+        chat_id, contact_name, last_message, last_message_time, unread_count, avatar_url, created_at
+      FROM chat_previews
+      WHERE user_id = $1;
+    `, [userId]);
 
-    // Structure the response
+    // Query contacts separately
+    const contactsQuery = await pool.query(`
+      SELECT 
+        contact_id, contacted_id, contact_name, contact_message, created_at
+      FROM contacts
+      WHERE user_id = $1;
+    `, [userId]);
+
     const userData = {
       user: {
         user_id: user.user_id,
@@ -43,19 +51,22 @@ router.get('/userinfo', async (req, res) => {
         username: user.username,
         gender: user.gender,
         profile_picture: user.profile_picture,
-        about_message: user.about_message, // 🆕 Added here in response
+        about_message: user.about_message,
         created_at: user.created_at,
         updated_at: user.updated_at,
       },
-      chat_previews: userQuery.rows.filter(row => row.chat_id), // Filter chat preview data
-      contacts: userQuery.rows.filter(row => row.contact_id),   // Filter contact data
+      chat_previews: chatPreviewsQuery.rows,
+      contacts: contactsQuery.rows,
     };
 
-    // Send response with user data and associated chat previews & contacts
     res.json(userData);
   } catch (err) {
     console.error(err);
-    res.status(401).json({ error: 'Invalid token' });
+    if (err instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({ error: 'Invalid token' });
+    } else {
+      res.status(500).json({ error: 'Server error' });
+    }
   }
 });
 

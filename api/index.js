@@ -7,6 +7,9 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userInfoRoutes = require('./userInfo');
 const addContactRoutes = require('./addContact');
+const { uploadToCloudinary } = require('./cloudinary-upload');  // Import the Cloudinary upload function
+const updateProfilePicture = require('./profileUpdate')
+const userUpdate = require('./userUpdate')
 
 // Initialize Express app
 const app = express();
@@ -102,22 +105,45 @@ app.post('/check-credentials', async (req, res) => {
 app.post('/signup', upload.single('profilePicture'), async (req, res) => {
   const { firstName, lastName, email, username, password, gender } = req.body;
 
-  // Handle file upload - convert buffer to base64 for serverless
-  const profilePicture = req.file 
-    ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
-    : null;
+  let profilePictureUrl = null; // We'll store the Cloudinary URL here
 
-  const aboutMessage = "Ready to Echoo"; // 🆕 Default about message
+  if (req.file) {
+    try {
+      console.log('Uploading profile picture to Cloudinary...');
+      const uploadResult = await uploadToCloudinary(req.file.buffer, `${username}-profile.jpg`);
+      console.log('Uploaded file to Cloudinary:', uploadResult);
+  
+      profilePictureUrl = uploadResult.secure_url; // safer to use HTTPS
+      console.log('Upload successful! Cloudinary URL:', profilePictureUrl);
+    } catch (uploadErr) {
+      console.error('Failed to upload profile picture to Cloudinary:', uploadErr);
+      return res.status(500).json({ message: 'Profile picture upload failed' });
+    }
+  }
+  
+
+  const aboutMessage = "Ready to Echoo"; // Default about message
 
   try {
     const passwordHash = await hashPassword(password);
-    
+
     const user = await withDB(async (client) => {
       const result = await client.query(
-        `INSERT INTO users (first_name, last_name, email, username, password_hash, gender, profile_picture, about_message) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-         RETURNING user_id, username, email, first_name, last_name, gender, profile_picture, about_message`,
-        [firstName, lastName, email, username, passwordHash, gender, profilePicture, aboutMessage]
+        `INSERT INTO users (
+          first_name, last_name, email, username, password_hash, gender, profile_picture, about_message
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8
+        ) RETURNING user_id, username, email, first_name, last_name, gender, profile_picture, about_message`,
+        [
+          firstName,
+          lastName,
+          email,
+          username,
+          passwordHash,
+          gender,
+          profilePictureUrl, // Save the Cloudinary URL here
+          aboutMessage
+        ]
       );
       return result.rows[0];
     });
@@ -129,20 +155,21 @@ app.post('/signup', upload.single('profilePicture'), async (req, res) => {
 
     res.status(201).json({
       message: 'Signup successful',
-      user,
+      user: { ...user, profile_picture: profilePictureUrl }, // Return the URL in the user object
       token
     });
   } catch (err) {
     console.error('Signup error:', err);
-    
+
     if (err.code === '23505') {
       const field = err.constraint.includes('email') ? 'email' : 'username';
       return res.status(400).json({ message: `${field} already exists` });
     }
-    
+
     res.status(500).json({ message: 'Signup failed' });
   }
 });
+
 
 
 // Login Route with detailed logging
@@ -234,7 +261,8 @@ app.get('/profile', async (req, res) => {
 
 app.use('/api', userInfoRoutes); // <--- Make sure this is added
 app.use('/api', addContactRoutes);
-
+app.use('/api', updateProfilePicture )
+app.use('/api', userUpdate )
 
 // Start Server
 module.exports = app;
