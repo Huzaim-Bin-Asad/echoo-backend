@@ -36,7 +36,15 @@ app.get('/', (req, res) => {
         signup: 'POST /signup',
         login: 'POST /login',
         profile: 'GET /profile',
-        checkCredentials: 'POST /check-credentials'  // Added this line
+        checkCredentials: 'POST /check-credentials',
+        checkEmail: 'POST /api/check-email',
+        checkUsername: 'POST /api/check-username'
+      },
+      user: {
+        update: 'PUT /users/update',
+        addContact: 'POST /add-contact',
+        uploadProfilePicture: 'POST /upload-profile-picture',
+        getUserInfo: 'GET /userinfo'
       },
       status: 'GET /status',
     },
