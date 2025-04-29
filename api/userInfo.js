@@ -13,7 +13,7 @@ router.get('/userinfo', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.user_id;
 
-    // Query user basic data
+    // Get user base info
     const userQuery = await pool.query(`
       SELECT 
         user_id, first_name, last_name, email, username, gender, 
@@ -26,21 +26,35 @@ router.get('/userinfo', async (req, res) => {
 
     const user = userQuery.rows[0];
 
-    // Query chat_previews separately
-    const chatPreviewsQuery = await pool.query(`
-      SELECT 
-        chat_id, contact_name, last_message, last_message_time, unread_count, avatar_url, created_at
-      FROM chat_previews
-      WHERE user_id = $1;
-    `, [userId]);
 
-    // Query contacts separately
+    // Get contacts
     const contactsQuery = await pool.query(`
       SELECT 
-        contact_id, contacted_id, contact_name, contact_message, created_at
+        contact_id, contacted_id, contact_name, created_at
       FROM contacts
       WHERE user_id = $1;
     `, [userId]);
+
+    const contacts = contactsQuery.rows;
+
+    // Enrich each contact with profile_picture and about_message
+    const enrichedContacts = await Promise.all(
+      contacts.map(async (contact) => {
+        const userDetailsQuery = await pool.query(`
+          SELECT profile_picture, about_message
+          FROM users
+          WHERE user_id = $1;
+        `, [contact.contacted_id]);
+
+        const userDetails = userDetailsQuery.rows[0] || {};
+
+        return {
+          ...contact,
+          profile_picture: userDetails.profile_picture || null,
+          about_message: userDetails.about_message || null,
+        };
+      })
+    );
 
     const userData = {
       user: {
@@ -55,8 +69,7 @@ router.get('/userinfo', async (req, res) => {
         created_at: user.created_at,
         updated_at: user.updated_at,
       },
-      chat_previews: chatPreviewsQuery.rows,
-      contacts: contactsQuery.rows,
+        contacts: enrichedContacts,
     };
 
     res.json(userData);

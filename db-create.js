@@ -53,25 +53,12 @@ const createTables = async () => {
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 
-    CREATE TABLE IF NOT EXISTS chat_previews (
-      chat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-      contact_name VARCHAR(255) NOT NULL,
-      last_message TEXT,
-      last_message_time TIMESTAMPTZ DEFAULT NOW(),
-      unread_count INT DEFAULT 0,
-      avatar_url TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS idx_chat_previews_user ON chat_previews(user_id);
-    CREATE INDEX IF NOT EXISTS idx_chat_previews_time ON chat_previews(last_message_time DESC);
 
     CREATE TABLE IF NOT EXISTS contacts (
       contact_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
       contacted_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
       contact_name VARCHAR(255) NOT NULL,
-      contact_message TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     
     );

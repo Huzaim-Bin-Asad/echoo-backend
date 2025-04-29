@@ -9,7 +9,7 @@ const router = express.Router();
  * @access Private
  */
 router.post('/add-contact', async (req, res) => {
-  const { user_id, contact_name, contact_message, contacted_email, contacted_username } = req.body;
+  const { user_id, contact_name,  contacted_email, contacted_username } = req.body;
   const timestamp = new Date().toISOString();
   const requestId = uuidv4();
 
@@ -67,11 +67,11 @@ router.post('/add-contact', async (req, res) => {
   try {
     const contact_id = uuidv4();
     const query = `
-      INSERT INTO contacts (contact_id, user_id, contacted_id, contact_name, contact_message, created_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
+      INSERT INTO contacts (contact_id, user_id, contacted_id, contact_name, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
       RETURNING contact_id, contact_name, created_at
     `;
-    const values = [contact_id, user_id, contacted_id, contact_name, contact_message || null];
+    const values = [contact_id, user_id, contacted_id, contact_name|| null];
 
     console.log(`[${timestamp}] [${requestId}] 🛠️ Inserting contact`);
     const result = await pool.query(query, values);
