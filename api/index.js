@@ -113,7 +113,7 @@ app.post('/check-credentials', async (req, res) => {
 });
 
 app.post('/signup', upload.single('profilePicture'), async (req, res) => {
-  const { firstName, lastName, email, username, password, gender } = req.body;
+  const { fullName, email, username, password, gender } = req.body;
 
   let profilePictureUrl = null;
 
@@ -132,7 +132,6 @@ app.post('/signup', upload.single('profilePicture'), async (req, res) => {
   }
 
   const aboutMessage = "Ready to Echoo";
-  const fullName = `${firstName} ${lastName}`; // 👈 Combine first and last name
 
   try {
     const passwordHash = await hashPassword(password);
@@ -187,7 +186,7 @@ app.post('/login', async (req, res) => {
   try {
     const user = await withDB(async (client) => {
       const result = await client.query(
-        `SELECT user_id, username, email, first_name, last_name, password_hash 
+        `SELECT user_id, username, email, full_name,  password_hash 
          FROM users 
          WHERE email = $1 OR username = $1`,
         [identifier]
@@ -239,7 +238,7 @@ app.get('/profile', async (req, res) => {
     console.log('[PROFILE] Token successfully decoded:', decoded);
 
     const result = await pool.query(
-      `SELECT user_id, username, email, first_name, last_name, gender, profile_picture
+      `SELECT user_id, username, email, full_name, gender, profile_picture
        FROM users 
        WHERE user_id = $1`,
       [decoded.user_id]
