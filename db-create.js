@@ -67,12 +67,16 @@ const createTables = async () => {
 
 CREATE TABLE IF NOT EXISTS messages (
   message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  temp_id UUID,  -- New column to store the temporary ID
   contact_id UUID,  -- No foreign key constraint, contact_id is sent by frontend
   sender_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  receiver_id UUID REFERENCES users(user_id) ON DELETE CASCADE,  -- New column for the receiver's user_id
   message_text TEXT NOT NULL,
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   read_checker VARCHAR(10) DEFAULT 'unread'
 );
+
+
 
 CREATE INDEX IF NOT EXISTS idx_messages_contact_id ON messages(contact_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
