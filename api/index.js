@@ -7,10 +7,12 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userInfoRoutes = require('./userInfo');
 const addContactRoutes = require('./addContact');
-const { uploadToCloudinary } = require('./cloudinary-upload');  // Import the Cloudinary upload function
-const updateProfilePicture = require('./profileUpdate')
-const userUpdate = require('./userUpdate')
-const sendMessages = require('./sendMessage')
+const { uploadToCloudinary } = require('./cloudinary-upload');
+const updateProfilePicture = require('./profileUpdate');
+const userUpdate = require('./userUpdate');
+const sendMessages = require('./sendMessage');  // Corrected import for sendMessages
+const getMessages = require('./getMessages');  // Import the getMessages router
+
 // Initialize Express app
 const app = express();
 
@@ -20,6 +22,8 @@ app.use(cors({
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://192.168.18.15:3000', // ✅ Add this line
+    'http://192.168.213.115:3000', // ✅ Add this line
+
     'https://echho.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -268,9 +272,10 @@ app.get('/profile', async (req, res) => {
 
 app.use('/api', userInfoRoutes); // <--- Make sure this is added
 app.use('/api', addContactRoutes);
-app.use('/api', updateProfilePicture )
-app.use('/api', userUpdate )
-app.use('/api', sendMessages)
+app.use('/api', updateProfilePicture);
+app.use('/api', userUpdate);
+app.use('/api', sendMessages);  // This line was duplicated before
+app.use('/api', getMessages);  // Add this to use the `getMessages` router
 
 // Start Server
 module.exports = app;
