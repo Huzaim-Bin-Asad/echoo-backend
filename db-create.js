@@ -39,8 +39,7 @@ const createTables = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS users (
       user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      first_name VARCHAR(255) NOT NULL,
-      last_name VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255) NOT NULL, 
       email VARCHAR(255) UNIQUE NOT NULL,
         about_message TEXT, -- 🆕 Added about_message field,
       username VARCHAR(255) UNIQUE NOT NULL,
@@ -64,6 +63,22 @@ const createTables = async () => {
     );
     CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
     CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(contact_name);
+
+
+CREATE TABLE IF NOT EXISTS messages (
+  message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_id UUID,  -- No foreign key constraint, contact_id is sent by frontend
+  sender_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  message_text TEXT NOT NULL,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  read_checker VARCHAR(10) DEFAULT 'unread'
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_contact_id ON messages(contact_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
+
+
   `;
 
   try {
