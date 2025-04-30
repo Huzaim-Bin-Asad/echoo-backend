@@ -16,7 +16,7 @@ router.get('/userinfo', async (req, res) => {
     // Get user base info
     const userQuery = await pool.query(`
       SELECT 
-        user_id, first_name, last_name, email, username, gender, 
+        user_id, full_name, email, username, gender, 
         profile_picture, created_at, updated_at, about_message
       FROM users
       WHERE user_id = $1;
