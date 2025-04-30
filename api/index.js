@@ -7,7 +7,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userInfoRoutes = require('./userInfo');
 const addContactRoutes = require('./addContact');
-const { uploadToCloudinary } = require('./cloudinary-upload');
+const { uploadToImageKit } = require('./imagekit-upload'); // ✅ Updated import
 const updateProfilePicture = require('./profileUpdate');
 const userUpdate = require('./userUpdate');
 const sendMessages = require('./sendMessage');  // Corrected import for sendMessages
@@ -123,14 +123,14 @@ app.post('/signup', upload.single('profilePicture'), async (req, res) => {
 
   if (req.file) {
     try {
-      console.log('Uploading profile picture to Cloudinary...');
-      const uploadResult = await uploadToCloudinary(req.file.buffer, `${username}-profile.jpg`);
-      console.log('Uploaded file to Cloudinary:', uploadResult);
+      console.log('Uploading profile picture to ImageKit...');
+      const uploadResult = await uploadToImageKit(req.file.buffer, `${username}-profile.jpg`);
+      console.log('Uploaded file to ImageKit:', uploadResult);
 
-      profilePictureUrl = uploadResult.secure_url;
-      console.log('Upload successful! Cloudinary URL:', profilePictureUrl);
+      profilePictureUrl = uploadResult.url;
+      console.log('Upload successful! ImageKit URL:', profilePictureUrl);
     } catch (uploadErr) {
-      console.error('Failed to upload profile picture to Cloudinary:', uploadErr);
+      console.error('Failed to upload profile picture to ImageKit:', uploadErr);
       return res.status(500).json({ message: 'Profile picture upload failed' });
     }
   }
@@ -181,7 +181,6 @@ app.post('/signup', upload.single('profilePicture'), async (req, res) => {
     res.status(500).json({ message: 'Signup failed' });
   }
 });
-
 
 // Login Route with detailed logging
 app.post('/login', async (req, res) => {

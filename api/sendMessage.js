@@ -1,11 +1,11 @@
 const express = require("express");
-const { v4: uuidv4 } = require("uuid");
+const { v4: uuidv4, validate: isUuid } = require("uuid");
 const router = express.Router();
 const { pool } = require("../db-create");
 
 router.post("/Send-messages", async (req, res) => {
   const {
-    contact_id,
+    contact_id, // Original contact_id from client (UUID format)
     sender_id,
     receiver_id,
     message_text,
@@ -14,7 +14,22 @@ router.post("/Send-messages", async (req, res) => {
     temp_id,
   } = req.body;
 
+  console.log("📩 Received message request:", {
+    contact_id,
+    sender_id,
+    receiver_id,
+    message_text: message_text?.substring(0, 20) + "...",
+    temp_id,
+  });
+
+  // Validate UUIDs
+  if (!isUuid(contact_id) || !isUuid(sender_id) || !isUuid(receiver_id)) {
+    console.error("❌ Invalid UUID format");
+    return res.status(400).json({ error: "Invalid UUID format" });
+  }
+
   if (!contact_id || !sender_id || !receiver_id || !message_text || !temp_id) {
+    console.error("❌ Missing required fields");
     return res.status(400).json({ error: "Missing required fields" });
   }
 
@@ -26,8 +41,9 @@ router.post("/Send-messages", async (req, res) => {
 
   try {
     await client.query("BEGIN");
+    console.log("🔵 Transaction begun");
 
-    // Save the message
+    // Save the message (using original contact_id)
     const insertMessageQuery = `
       INSERT INTO messages (
         message_id, temp_id, contact_id,
@@ -48,21 +64,62 @@ router.post("/Send-messages", async (req, res) => {
       safeReadChecker,
     ]);
 
-    // Get profile picture of receiver (to show in sender's chat_preview)
+    console.log("💾 Message saved:", savedMessage.message_id);
+
+    // Get user details for both users
+    console.log("🔍 Fetching user details...");
+    const { rows: senderUserRows } = await client.query(
+      "SELECT username, profile_picture FROM users WHERE user_id = $1",
+      [sender_id]
+    );
+    const senderUsername = senderUserRows[0]?.username || "Unknown";
+    const senderProfilePic = senderUserRows[0]?.profile_picture || null;
+
     const { rows: receiverUserRows } = await client.query(
-      "SELECT profile_picture FROM users WHERE user_id = $1",
+      "SELECT username, profile_picture FROM users WHERE user_id = $1",
       [receiver_id]
     );
+    const receiverUsername = receiverUserRows[0]?.username || "Unknown";
     const receiverProfilePic = receiverUserRows[0]?.profile_picture || null;
 
-    // Get contact name saved by sender
+    console.log("👤 User details fetched:", {
+      sender: senderUsername,
+      receiver: receiverUsername,
+    });
+
+    // Generate UUIDs for chat_previews (not composite IDs)
+    const senderPreviewId = uuidv4();
+    const receiverPreviewId = uuidv4();
+
+    console.log("🆔 Generated chat preview IDs:", {
+      senderPreviewId,
+      receiverPreviewId,
+    });
+
+    // 1. Handle sender's contact and chat preview
+    console.log("🔄 Processing sender's contact...");
     const { rows: senderContactRows } = await client.query(
-      "SELECT contact_name FROM contacts WHERE user_id = $1 AND contacted_id = $2",
+      "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND contacted_id = $2",
       [sender_id, receiver_id]
     );
-    const senderContactName = senderContactRows[0]?.contact_name || "Unknown";
+    
+    let senderContactId = senderContactRows[0]?.contact_id;
+    let senderContactName = senderContactRows[0]?.contact_name;
+    
+    if (!senderContactId) {
+      senderContactId = senderPreviewId;
+      senderContactName = receiverUsername;
+      console.log("➕ Creating sender's contact entry");
+      await client.query(
+        `INSERT INTO contacts (
+          contact_id, user_id, contacted_id, contact_name
+        ) VALUES ($1, $2, $3, $4)`,
+        [senderContactId, sender_id, receiver_id, receiverUsername]
+      );
+    }
 
-    // UPSERT sender's chat_preview
+    // Update sender's chat preview
+    console.log("💬 Updating sender's chat preview");
     await client.query(
       `
       INSERT INTO chat_previews (
@@ -78,52 +135,41 @@ router.post("/Send-messages", async (req, res) => {
         receiver_id = EXCLUDED.receiver_id;
       `,
       [
-        contact_id,
+        senderContactId, // Use the contact's UUID
         receiverProfilePic,
         senderContactName,
         message_text,
         safeTimestamp,
         sender_id,
-        receiver_id,
+        receiver_id
       ]
     );
+    console.log("✅ Sender's chat preview updated");
 
-    // Check if receiver has sender as contact
+    // 2. Handle receiver's contact and chat preview
+    console.log("🔄 Processing receiver's contact...");
     const { rows: receiverContactRows } = await client.query(
       "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND contacted_id = $2",
       [receiver_id, sender_id]
     );
-
+    
+    let receiverContactId = receiverContactRows[0]?.contact_id;
     let receiverContactName = receiverContactRows[0]?.contact_name;
-
-    if (receiverContactRows.length === 0) {
-      // Get sender's username
-      const { rows: senderUserRows } = await client.query(
-        "SELECT username, profile_picture FROM users WHERE user_id = $1",
-        [sender_id]
-      );
-      const senderUsername = senderUserRows[0]?.username || "Unknown";
-      const senderProfilePic = senderUserRows[0]?.profile_picture || null;
-
-      // Create new contact for receiver (receiver saves sender)
+    
+    if (!receiverContactId) {
+      receiverContactId = receiverPreviewId;
       receiverContactName = senderUsername;
-
+      console.log("➕ Creating receiver's contact entry");
       await client.query(
         `INSERT INTO contacts (
           contact_id, user_id, contacted_id, contact_name
         ) VALUES ($1, $2, $3, $4)`,
-        [contact_id, receiver_id, sender_id, senderUsername]
+        [receiverContactId, receiver_id, sender_id, senderUsername]
       );
     }
 
-    // Get sender's profile picture for receiver's chat preview
-    const { rows: senderUserRows } = await client.query(
-      "SELECT profile_picture FROM users WHERE user_id = $1",
-      [sender_id]
-    );
-    const senderProfilePic = senderUserRows[0]?.profile_picture || null;
-
-    // UPSERT receiver's chat_preview (using same contact_id but swapped sender/receiver)
+    // Update receiver's chat preview
+    console.log("💬 Updating receiver's chat preview");
     await client.query(
       `
       INSERT INTO chat_previews (
@@ -139,20 +185,22 @@ router.post("/Send-messages", async (req, res) => {
         receiver_id = EXCLUDED.receiver_id;
       `,
       [
-        contact_id,
+        receiverContactId, // Use the contact's UUID
         senderProfilePic,
-        receiverContactName || "Unknown",
+        receiverContactName,
         message_text,
         safeTimestamp,
-        receiver_id,  // Swapped - receiver's perspective
-        sender_id    // Swapped - receiver's perspective
+        receiver_id,
+        sender_id
       ]
     );
+    console.log("✅ Receiver's chat preview updated");
 
     await client.query("COMMIT");
+    console.log("🟢 Transaction committed");
 
     res.status(201).json({
-      message: "Message sent and chat previews updated",
+      message: "Message sent and chat previews updated for both users",
       message_id: savedMessage.message_id,
       temp_id,
       savedMessage,
@@ -163,6 +211,7 @@ router.post("/Send-messages", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   } finally {
     client.release();
+    console.log("🔴 Connection released");
   }
 });
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
-const { uploadToCloudinary } = require('./cloudinary-upload');
-const { pool } = require('../db-create'); // ✅ Destructure pool properly
+const { uploadToImageKit } = require('./imagekit-upload'); // ✅ Updated import
+const { pool } = require('../db-create');
 const router = express.Router();
 
 // Multer middleware to handle multipart/form-data
@@ -11,16 +11,15 @@ const upload = multer({ storage });
 router.post('/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
   try {
     const file = req.file;
-    const userId = req.body.userId; // 🔥 Get userId from the request body
+    const userId = req.body.userId;
 
     if (!file || !userId) {
       return res.status(400).json({ error: 'File and user ID must be provided.' });
     }
 
-    // Upload image to Cloudinary
-    const uploadResult = await uploadToCloudinary(file.buffer, file.originalname);
-
-    const profilePictureUrl = uploadResult.secure_url;
+    // Upload image to ImageKit
+    const uploadResult = await uploadToImageKit(file.buffer, file.originalname);
+    const profilePictureUrl = uploadResult.url; // ✅ Use 'url' instead of 'secure_url'
 
     // Update the user's profile_picture URL in the database
     await pool.query(
