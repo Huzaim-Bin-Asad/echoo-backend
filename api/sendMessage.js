@@ -5,7 +5,7 @@ const { pool } = require("../db-create");
 
 router.post("/Send-messages", async (req, res) => {
   const {
-    contact_id, // Original contact_id from client (UUID format)
+    contact_id,
     sender_id,
     receiver_id,
     message_text,
@@ -22,7 +22,6 @@ router.post("/Send-messages", async (req, res) => {
     temp_id,
   });
 
-  // Validate UUIDs
   if (!isUuid(contact_id) || !isUuid(sender_id) || !isUuid(receiver_id)) {
     console.error("❌ Invalid UUID format");
     return res.status(400).json({ error: "Invalid UUID format" });
@@ -43,7 +42,7 @@ router.post("/Send-messages", async (req, res) => {
     await client.query("BEGIN");
     console.log("🔵 Transaction begun");
 
-    // Save the message (using original contact_id)
+    // 1. Save message
     const insertMessageQuery = `
       INSERT INTO messages (
         message_id, temp_id, contact_id,
@@ -52,7 +51,6 @@ router.post("/Send-messages", async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *;
     `;
-
     const { rows: [savedMessage] } = await client.query(insertMessageQuery, [
       message_id,
       temp_id,
@@ -63,10 +61,9 @@ router.post("/Send-messages", async (req, res) => {
       safeTimestamp,
       safeReadChecker,
     ]);
-
     console.log("💾 Message saved:", savedMessage.message_id);
 
-    // Get user details for both users
+    // 2. Fetch usernames and profile pictures
     console.log("🔍 Fetching user details...");
     const { rows: senderUserRows } = await client.query(
       "SELECT username, profile_picture FROM users WHERE user_id = $1",
@@ -87,45 +84,38 @@ router.post("/Send-messages", async (req, res) => {
       receiver: receiverUsername,
     });
 
-    // Generate UUIDs for chat_previews (not composite IDs)
-    const senderPreviewId = uuidv4();
-    const receiverPreviewId = uuidv4();
-
-    console.log("🆔 Generated chat preview IDs:", {
-      senderPreviewId,
-      receiverPreviewId,
-    });
-
-    // 1. Handle sender's contact and chat preview
+    // 3. Handle sender's contact
     console.log("🔄 Processing sender's contact...");
     const { rows: senderContactRows } = await client.query(
-      "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND receiver_id = $2",
+      "SELECT contact_id FROM contacts WHERE user_id = $1 AND receiver_id = $2",
       [sender_id, receiver_id]
     );
-    
     let senderContactId = senderContactRows[0]?.contact_id;
-    let senderContactName = senderContactRows[0]?.contact_name;
-    
     if (!senderContactId) {
-      senderContactId = senderPreviewId;
-      senderContactName = receiverUsername;
+      senderContactId = uuidv4();
       console.log("➕ Creating sender's contact entry");
       await client.query(
         `INSERT INTO contacts (
-          contact_id, user_id, receiver_id, contact_name
-        ) VALUES ($1, $2, $3, $4)`,
-        [senderContactId, sender_id, receiver_id, receiverUsername]
+          contact_id, user_id, sender_id, receiver_id, contact_name
+        ) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          senderContactId,
+          sender_id,
+          sender_id,
+          receiver_id,
+          receiverUsername
+        ]
       );
     }
 
-    // Update sender's chat preview
-    console.log("💬 Updating sender's chat preview");
+    // 4. Update sender's chat preview
+    const senderPreviewId = uuidv4();
     await client.query(
       `
       INSERT INTO chat_previews (
         contact_id, profile_picture, contact_name,
-        last_text, text_timestamp, sender_id, receiver_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        last_text, text_timestamp, user_id, sender_id, receiver_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (contact_id) DO UPDATE SET
         profile_picture = EXCLUDED.profile_picture,
         contact_name = EXCLUDED.contact_name,
@@ -135,47 +125,51 @@ router.post("/Send-messages", async (req, res) => {
         receiver_id = EXCLUDED.receiver_id;
       `,
       [
-        senderContactId, // Use the contact's UUID
+        contact_id,
         receiverProfilePic,
-        senderContactName,
+        receiverUsername,
         message_text,
         safeTimestamp,
+        sender_id,
         sender_id,
         receiver_id
       ]
     );
-    console.log("✅ Sender's chat preview updated");
 
-    // 2. Handle receiver's contact and chat preview
+    // 5. Handle receiver's contact
     console.log("🔄 Processing receiver's contact...");
     const { rows: receiverContactRows } = await client.query(
-      "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND  = $2",
+      "SELECT contact_id FROM contacts WHERE user_id = $1 AND receiver_id = $2",
       [receiver_id, sender_id]
     );
-    
+
     let receiverContactId = receiverContactRows[0]?.contact_id;
-    let receiverContactName = receiverContactRows[0]?.contact_name;
-    
+
     if (!receiverContactId) {
-      receiverContactId = receiverPreviewId;
-      receiverContactName = senderUsername;
+      receiverContactId = uuidv4();
       console.log("➕ Creating receiver's contact entry");
       await client.query(
         `INSERT INTO contacts (
-          contact_id, user_id, receiver_id, contact_name
-        ) VALUES ($1, $2, $3, $4)`,
-        [receiverContactId, receiver_id, sender_id, senderUsername]
+          contact_id, user_id, sender_id, receiver_id, contact_name
+        ) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          receiverContactId,
+          receiver_id,
+          receiver_id,
+          sender_id,
+          senderUsername
+        ]
       );
     }
 
-    // Update receiver's chat preview
+    // 6. Update receiver's chat preview
     console.log("💬 Updating receiver's chat preview");
     await client.query(
       `
       INSERT INTO chat_previews (
         contact_id, profile_picture, contact_name,
-        last_text, text_timestamp, sender_id, receiver_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        last_text, text_timestamp, user_id, sender_id, receiver_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (contact_id) DO UPDATE SET
         profile_picture = EXCLUDED.profile_picture,
         contact_name = EXCLUDED.contact_name,
@@ -185,15 +179,17 @@ router.post("/Send-messages", async (req, res) => {
         receiver_id = EXCLUDED.receiver_id;
       `,
       [
-        receiverContactId, // Use the contact's UUID
+        receiverContactId,
         senderProfilePic,
-        receiverContactName,
+        senderUsername,
         message_text,
         safeTimestamp,
+        receiver_id,
         receiver_id,
         sender_id
       ]
     );
+
     console.log("✅ Receiver's chat preview updated");
 
     await client.query("COMMIT");
@@ -205,6 +201,7 @@ router.post("/Send-messages", async (req, res) => {
       temp_id,
       savedMessage,
     });
+
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("❌ Error handling /Send-messages:", err.message);
