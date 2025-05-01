@@ -29,13 +29,12 @@ const createTables = async () => {
 
     CREATE TABLE IF NOT EXISTS contacts (
       contact_id UUID NOT NULL,
-      user_id UUID NOT NULL, -- mirrors sender_id
+      user_id UUID NOT NULL,
       sender_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
       receiver_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
       contact_name VARCHAR(255) NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW(),
-      PRIMARY KEY (contact_id, user_id),
-      CHECK (user_id = sender_id)
+      PRIMARY KEY (contact_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS messages (
