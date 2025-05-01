@@ -99,7 +99,7 @@ router.post("/Send-messages", async (req, res) => {
     // 1. Handle sender's contact and chat preview
     console.log("🔄 Processing sender's contact...");
     const { rows: senderContactRows } = await client.query(
-      "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND contacted_id = $2",
+      "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND receiver_id = $2",
       [sender_id, receiver_id]
     );
     
@@ -112,7 +112,7 @@ router.post("/Send-messages", async (req, res) => {
       console.log("➕ Creating sender's contact entry");
       await client.query(
         `INSERT INTO contacts (
-          contact_id, user_id, contacted_id, contact_name
+          contact_id, user_id, receiver_id, contact_name
         ) VALUES ($1, $2, $3, $4)`,
         [senderContactId, sender_id, receiver_id, receiverUsername]
       );
@@ -149,7 +149,7 @@ router.post("/Send-messages", async (req, res) => {
     // 2. Handle receiver's contact and chat preview
     console.log("🔄 Processing receiver's contact...");
     const { rows: receiverContactRows } = await client.query(
-      "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND contacted_id = $2",
+      "SELECT contact_id, contact_name FROM contacts WHERE user_id = $1 AND  = $2",
       [receiver_id, sender_id]
     );
     
@@ -162,7 +162,7 @@ router.post("/Send-messages", async (req, res) => {
       console.log("➕ Creating receiver's contact entry");
       await client.query(
         `INSERT INTO contacts (
-          contact_id, user_id, contacted_id, contact_name
+          contact_id, user_id, receiver_id, contact_name
         ) VALUES ($1, $2, $3, $4)`,
         [receiverContactId, receiver_id, sender_id, senderUsername]
       );

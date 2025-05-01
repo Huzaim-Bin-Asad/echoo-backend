@@ -22,32 +22,34 @@ router.get('/userinfo', async (req, res) => {
       WHERE user_id = $1;
     `, [userId]);
 
-    if (!userQuery.rows.length) return res.status(404).json({ error: 'User not found' });
+    if (!userQuery.rows.length) {
+      console.warn('⚠️ User not found');
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     const user = userQuery.rows[0];
 
-
-    // Get contacts
+    // Get full contact data (all columns)
     const contactsQuery = await pool.query(`
       SELECT 
-        contact_id, contacted_id, contact_name, created_at
+        contact_id, user_id, sender_id, receiver_id, 
+        contact_name, created_at
       FROM contacts
       WHERE user_id = $1;
     `, [userId]);
 
     const contacts = contactsQuery.rows;
 
-    // Enrich each contact with profile_picture and about_message
+    // Enrich each contact with profile_picture and about_message of the receiver
     const enrichedContacts = await Promise.all(
       contacts.map(async (contact) => {
         const userDetailsQuery = await pool.query(`
           SELECT profile_picture, about_message
           FROM users
           WHERE user_id = $1;
-        `, [contact.contacted_id]);
+        `, [contact.receiver_id]);
 
         const userDetails = userDetailsQuery.rows[0] || {};
-
         return {
           ...contact,
           profile_picture: userDetails.profile_picture || null,
@@ -55,6 +57,22 @@ router.get('/userinfo', async (req, res) => {
         };
       })
     );
+
+    // Get chat previews for this user
+    let chatPreviews = [];
+    try {
+      const chatPreviewsQuery = await pool.query(`
+        SELECT 
+          contact_id, profile_picture, contact_name, last_text,
+          text_timestamp, sender_id, receiver_id, user_id
+        FROM chat_previews
+        WHERE sender_id = $1;
+      `, [userId]);
+
+      chatPreviews = chatPreviewsQuery.rows;
+    } catch (previewErr) {
+      console.error('❌ Error fetching chat previews:', previewErr);
+    }
 
     const userData = {
       user: {
@@ -68,12 +86,13 @@ router.get('/userinfo', async (req, res) => {
         created_at: user.created_at,
         updated_at: user.updated_at,
       },
-        contacts: enrichedContacts,
+      contacts: enrichedContacts,
+      chat_previews: chatPreviews,
     };
 
     res.json(userData);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Server error in /userinfo:', err);
     if (err instanceof jwt.JsonWebTokenError) {
       res.status(401).json({ error: 'Invalid token' });
     } else {

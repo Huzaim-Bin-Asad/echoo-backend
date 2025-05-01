@@ -9,15 +9,17 @@ const router = express.Router();
  * @access Private
  */
 router.post('/add-contact', async (req, res) => {
-  const { user_id, contact_name,  contacted_email, contacted_username } = req.body;
+  const { user_id, sender_id: originalSenderId, contact_name, contacted_email, contacted_username } = req.body;
+  const sender_id = originalSenderId || user_id;
+
   const timestamp = new Date().toISOString();
   const requestId = uuidv4();
 
   console.log(`[${timestamp}] [${requestId}] ➕ Contact creation request received`);
 
-  if (!user_id || !contact_name) {
+  if (!sender_id || !contact_name) {
     const errorMsg = 'Missing required fields: ' + 
-      (!user_id ? 'user_id ' : '') + 
+      (!sender_id ? 'sender_id ' : '') + 
       (!contact_name ? 'contact_name' : '');
     console.warn(`[${timestamp}] [${requestId}] ❌ ${errorMsg}`);
     return res.status(400).json({ 
@@ -27,10 +29,9 @@ router.post('/add-contact', async (req, res) => {
     });
   }
 
-  let contacted_id = null;
+  let receiver_id = null;
 
   try {
-    // Make sure both contacted_email and contacted_username are provided
     if (contacted_email && contacted_username) {
       const result = await pool.query(
         `SELECT user_id FROM users WHERE email = $1 AND username = $2 LIMIT 1`,
@@ -38,8 +39,8 @@ router.post('/add-contact', async (req, res) => {
       );
 
       if (result.rows.length > 0) {
-        contacted_id = result.rows[0].user_id;
-        console.log(`[${timestamp}] [${requestId}] 🧩 Matched contacted user ID: ${contacted_id}`);
+        receiver_id = result.rows[0].user_id;
+        console.log(`[${timestamp}] [${requestId}] 🧩 Matched receiver user ID: ${receiver_id}`);
       } else {
         console.warn(`[${timestamp}] [${requestId}] ❌ No user found matching both email and username`);
         return res.status(404).json({
@@ -56,9 +57,9 @@ router.post('/add-contact', async (req, res) => {
       });
     }
   } catch (lookupErr) {
-    console.error(`[${timestamp}] [${requestId}] ⚠️ Error looking up contacted user:\n`, lookupErr);
+    console.error(`[${timestamp}] [${requestId}] ⚠️ Error looking up receiver user:\n`, lookupErr);
     return res.status(500).json({ 
-      message: 'Error fetching contacted user.',
+      message: 'Error fetching receiver user.',
       requestId,
       status: 'error'
     });
@@ -67,11 +68,13 @@ router.post('/add-contact', async (req, res) => {
   try {
     const contact_id = uuidv4();
     const query = `
-      INSERT INTO contacts (contact_id, user_id, contacted_id, contact_name, created_at)
-      VALUES ($1, $2, $3, $4, NOW())
-      RETURNING contact_id, contact_name, created_at
-    `;
-    const values = [contact_id, user_id, contacted_id, contact_name|| null];
+    INSERT INTO contacts (contact_id, user_id, sender_id, receiver_id, contact_name, created_at)
+    VALUES ($1, $2, $3, $4, $5, NOW())
+    RETURNING contact_id, contact_name, created_at
+  `;
+  
+  const values = [contact_id, sender_id, sender_id, receiver_id, contact_name];
+  
 
     console.log(`[${timestamp}] [${requestId}] 🛠️ Inserting contact`);
     const result = await pool.query(query, values);
@@ -92,6 +95,7 @@ router.post('/add-contact', async (req, res) => {
     });
   }
 });
+
 
 /**
  * @route POST /api/check-email

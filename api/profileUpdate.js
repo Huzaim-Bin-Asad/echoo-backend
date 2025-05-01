@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { uploadToImageKit } = require('./imagekit-upload'); // ✅ Updated import
+const { uploadToImageKit } = require('./imagekitUpload'); // ✅ Updated import
 const { pool } = require('../db-create');
 const router = express.Router();
 

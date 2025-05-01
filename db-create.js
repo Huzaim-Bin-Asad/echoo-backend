@@ -29,11 +29,13 @@ const createTables = async () => {
 
     CREATE TABLE IF NOT EXISTS contacts (
       contact_id UUID NOT NULL,
-      user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-      contacted_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+      user_id UUID NOT NULL, -- mirrors sender_id
+      sender_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+      receiver_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
       contact_name VARCHAR(255) NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW(),
-      PRIMARY KEY (contact_id, user_id)
+      PRIMARY KEY (contact_id, user_id),
+      CHECK (user_id = sender_id)
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -61,7 +63,7 @@ const createTables = async () => {
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
-    CREATE INDEX IF NOT EXISTS idx_contacts_contacted ON contacts(contacted_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_receiver ON contacts(receiver_id);
     CREATE INDEX IF NOT EXISTS idx_messages_contact_id ON messages(contact_id);
     CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
     CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);
