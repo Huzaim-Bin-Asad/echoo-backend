@@ -14,6 +14,9 @@ console.log('Initializing database connection...');
 
 const createTables = async () => {
   const query = `
+    -- Drop only chat_previews to avoid affecting user data
+    DROP TABLE IF EXISTS chat_previews;
+
     CREATE TABLE IF NOT EXISTS users (
       user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       full_name VARCHAR(255) NOT NULL,
@@ -48,7 +51,8 @@ const createTables = async () => {
       read_checker VARCHAR(10) DEFAULT 'unread'
     );
 
-    CREATE TABLE IF NOT EXISTS chat_previews (
+    -- Drop and recreate chat_previews to ensure contact_id is PRIMARY KEY
+    CREATE TABLE chat_previews (
       contact_id UUID PRIMARY KEY,
       profile_picture TEXT,
       contact_name VARCHAR(255) NOT NULL,
@@ -79,6 +83,8 @@ const createTables = async () => {
     throw err;
   }
 };
+
+
 
 const testConnection = async () => {
   let client;
