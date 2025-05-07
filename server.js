@@ -24,7 +24,7 @@ const server = http.createServer(app); // Create HTTP server from Express
 setupWebSocket(server); // Initialize WebSocket logic and attach it to the server
 
 
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.status(200).json({
     message: 'Welcome to the API',
     endpoints: {
