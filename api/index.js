@@ -27,28 +27,6 @@ app.use(cors({
 
 
 // Add this near the end of your file, before the export
-app.get('/', (req, res) => {
-  res.status(200).json({
-    message: 'Welcome to the API',
-    endpoints: {
-      auth: {
-        signup: 'POST /signup',
-        login: 'POST /login',
-        profile: 'GET /profile',
-        checkCredentials: 'POST /check-credentials',
-        checkEmail: 'POST /api/check-email',
-        checkUsername: 'POST /api/check-username'
-      },
-      user: {
-        update: 'PUT /users/update',
-        addContact: 'POST /add-contact',
-        uploadProfilePicture: 'POST /upload-profile-picture',
-        getUserInfo: 'GET /userinfo'
-      },
-      status: 'GET /status',
-    },
-  });
-});
 
 // Add a status endpoint
 app.get('/status', (req, res) => {

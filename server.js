@@ -23,6 +23,31 @@ const server = http.createServer(app); // Create HTTP server from Express
 // 🌐 Setup WebSocket server (attaching to the existing HTTP server)
 setupWebSocket(server); // Initialize WebSocket logic and attach it to the server
 
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Welcome to the API',
+    endpoints: {
+      auth: {
+        signup: 'POST /signup',
+        login: 'POST /login',
+        profile: 'GET /profile',
+        checkCredentials: 'POST /check-credentials',
+        checkEmail: 'POST /api/check-email',
+        checkUsername: 'POST /api/check-username'
+      },
+      user: {
+        update: 'PUT /users/update',
+        addContact: 'POST /add-contact',
+        uploadProfilePicture: 'POST /upload-profile-picture',
+        getUserInfo: 'GET /userinfo'
+      },
+      status: 'GET /status',
+    },
+  });
+});
+
+
 // Mount API routes
 app.use('/api', userInfoRoutes);
 app.use('/api', addContactRoutes);
