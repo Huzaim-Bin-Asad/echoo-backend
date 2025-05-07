@@ -29,7 +29,7 @@ app.get('/api', (req, res) => {
     message: 'Welcome to the API',
     endpoints: {
       auth: {
-        signup: 'POST /signup',
+        signup: 'POST /api/signup',
         login: 'POST /login',
         profile: 'GET /profile',
         checkCredentials: 'POST /check-credentials',
