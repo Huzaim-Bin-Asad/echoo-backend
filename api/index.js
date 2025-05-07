@@ -5,14 +5,6 @@ const multer = require('multer');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const userInfoRoutes = require('./userInfo');
-const addContactRoutes = require('./addContact');
-const { uploadToImageKit } = require('./imagekitUpload'); // ✅ Updated import
-const updateProfilePicture = require('./profileUpdate');
-const userUpdate = require('./userUpdate');
-const sendMessages = require('./sendMessage');  // Corrected import for sendMessages
-const getMessages = require('./getMessages');
-const getContactInfo = require('./getContactInfo');  // This is for the contact info route
 
 // Initialize Express app
 const app = express();
@@ -270,13 +262,6 @@ app.get('/profile', async (req, res) => {
   }
 });
 
-app.use('/api', userInfoRoutes); // <--- Make sure this is added
-app.use('/api', addContactRoutes);
-app.use('/api', updateProfilePicture);
-app.use('/api', userUpdate);
-app.use('/api', sendMessages);  // This line was duplicated before
-app.use('/api', getMessages);  // Add this to use the `getMessages` router
-app.use('/api/', getContactInfo);  // Attach the contact info route to the API
 
 // Start Server
 module.exports = app;
