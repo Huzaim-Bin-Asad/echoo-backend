@@ -43,7 +43,7 @@ app.get('/', (req, res) => {
         update: 'PUT /users/update',
         addContact: 'POST /add-contact',
         uploadProfilePicture: 'POST /upload-profile-picture',
-        getUserInfo: 'GET /api/userinfo'
+        getUserInfo: 'GET /userinfo'
       },
       status: 'GET /status',
     },

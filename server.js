@@ -23,9 +23,6 @@ const server = http.createServer(app); // Create HTTP server from Express
 // 🌐 Setup WebSocket server (attaching to the existing HTTP server)
 setupWebSocket(server); // Initialize WebSocket logic and attach it to the server
 
-
-
-
 // Mount API routes
 app.use('/api', userInfoRoutes);
 app.use('/api', addContactRoutes);

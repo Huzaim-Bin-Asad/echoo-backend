@@ -79,7 +79,6 @@ const handleSocketMessage = async (socket, message, clients) => {
       }
       console.log(`User identified: ${message.user_id}`);
       clients.set(message.user_id, socket);
-      console.log('Clients map:', Array.from(clients.keys()));
       socket.send(JSON.stringify({ type: 'identified', payload: { user_id: message.user_id } }));
       return;
     }
@@ -138,20 +137,12 @@ const handleSocketMessage = async (socket, message, clients) => {
 
         await client.query("COMMIT");
 
-        // Send new_message to the receiver, even if offline
-        if (receiver_id !== sender_id) {
-          if (clients.has(receiver_id)) {
-            console.log(`Sending new_message to connected receiver: ${receiver_id}`);
-            clients.get(receiver_id).send(JSON.stringify({
-              type: "new_message",
-              payload: { ...savedMessage, temp_id },
-            }));
-          } else {
-            console.log(`Receiver ${receiver_id} offline; new_message will be delivered on reconnect`);
-            // Note: WebSocket may queue or rely on get_messages on reconnect
-          }
-        } else {
-          console.log(`Not sending new_message: receiver_id ${receiver_id} is sender`);
+        // Send new_message only to the receiver
+        if (clients.has(receiver_id) && receiver_id !== sender_id) {
+          clients.get(receiver_id).send(JSON.stringify({
+            type: "new_message",
+            payload: { ...savedMessage, temp_id }, // Explicitly include temp_id
+          }));
         }
 
         // Send message_sent to the sender
@@ -258,32 +249,32 @@ const handleSocketMessage = async (socket, message, clients) => {
 };
 
 const handleConnection = (ws, clients) => {
-  ws.on('message', (data) => {
-    try {
-      const message = JSON.parse(data);
-      handleSocketMessage(ws, message, clients);
-    } catch (err) {
-      console.error('Error parsing message:', err);
-      ws.send(JSON.stringify({ 
-        type: 'error', 
-        payload: 'Invalid message format' 
-      }));
-    }
-  });
+ws.on('message', (data) => {
+  try {
+    const message = JSON.parse(data);
+    handleSocketMessage(ws, message, clients);
+  } catch (err) {
+    console.error('Error parsing message:', err);
+    ws.send(JSON.stringify({ 
+      type: 'error', 
+      payload: 'Invalid message format' 
+    }));
+  }
+});
 
-  ws.on('close', (code, reason) => {
-    for (const [userId, socket] of clients.entries()) {
-      if (socket === ws) {
-        clients.delete(userId);
-        console.log(`🚪 User ${userId} disconnected. Code: ${code}, Reason: ${reason || 'Unknown'}`);
-        break;
-      }
+ws.on('close', (code, reason) => {
+  for (const [userId, socket] of clients.entries()) {
+    if (socket === ws) {
+      clients.delete(userId);
+      console.log(`🚪 User ${userId} disconnected. Code: ${code}, Reason: ${reason || 'Unknown'}`);
+      break;
     }
-  });
+  }
+});
 
-  ws.on('error', (err) => {
-    console.error('WebSocket error:', err);
-  });
+ws.on('error', (err) => {
+  console.error('WebSocket error:', err);
+});
 };
 
 module.exports = { handleConnection };
