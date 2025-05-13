@@ -2,7 +2,7 @@
   "name": "echoo-backend",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js",
+    "start": "node api/index.js",
     "userInfo": "node api/userInfo.js",
     "addContact": "node api/addContact.js",
     "server.js": "node server.js",
