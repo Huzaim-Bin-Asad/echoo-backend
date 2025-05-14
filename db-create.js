@@ -63,6 +63,17 @@ const createTables = async () => {
       user_id UUID REFERENCES users(user_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS status (
+  status_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  media_url TEXT NOT NULL,
+  caption TEXT,
+  not_allow_id UUID[] DEFAULT '{}',
+  read_id UUID[] DEFAULT '{}',
+  timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);

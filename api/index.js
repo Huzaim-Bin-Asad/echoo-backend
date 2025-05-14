@@ -5,6 +5,7 @@ const multer = require('multer');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { uploadToImageKit } = require('./imagekitUpload'); // ✅ Updated import
 
 // Initialize Express app
 const app = express();
@@ -24,7 +25,16 @@ app.use(cors({
   credentials: true
 }));
 
+// Increase the limit for JSON payloads
+app.use(express.json({ limit: '50mb' }));  // Increased JSON payload size to 50MB
+app.use(express.urlencoded({ limit: '50mb', extended: true }));  // Increased URL-encoded payload size to 50MB
 
+// Multer file upload configuration for handling large files
+const storage = multer.memoryStorage(); // Store files in memory
+const upload = multer({ 
+  storage, 
+  limits: { fileSize: 50 * 1024 * 1024 }  // Allow up to 50MB files
+}); 
 
 // Add this near the end of your file, before the export
 app.get('/', (req, res) => {
@@ -45,26 +55,18 @@ app.get('/', (req, res) => {
         uploadProfilePicture: 'POST /upload-profile-picture',
         getUserInfo: 'GET /userinfo'
       },
-      status: 'GET /status',
+      status: {
+        upload: 'POST /api/status'
+      },
     },
   });
 });
 
-// Add a status endpoint
-app.get('/status', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
 
 // Middleware for parsing JSON bodies
 app.use(express.json());
 
-// Serverless-compatible multer configuration (memory storage)
-const storage = multer.memoryStorage(); // Store files in memory
-const upload = multer({ storage });
+
 
 // Database connection wrapper for serverless
 const withDB = async (handler) => {
