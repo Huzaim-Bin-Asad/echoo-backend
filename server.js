@@ -31,7 +31,7 @@ app.use(bodyParser.json({ limit: '50mb' }));  // Limit JSON payload size to 50MB
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));  // Limit URL-encoded payload size
 
 // Mount API routes
-app.use('/api/', getCurrentStatusRoutes);
+app.use('/api', getCurrentStatusRoutes);
 
 app.use('/api', userInfoRoutes);
 app.use('/api', addContactRoutes);
