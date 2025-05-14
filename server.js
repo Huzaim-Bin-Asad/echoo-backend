@@ -15,7 +15,7 @@ const updateProfilePicture = require('./api/profileUpdate');
 const userUpdate = require('./api/userUpdate');
 const getContactInfo = require('./api/getContactInfo');
 const statusRoutes = require('./api/status');
-const getCurrentStatusRoutes = require('./routes/getCurrentStatus');
+const getCurrentStatusRoutes = require('./api/getCurrentStatus');
 
 // Import the necessary functions
 const { handleSocketMessage } = require('./api/handleSocketMessage');  // Import handleSocketMessage
