@@ -56,7 +56,8 @@ app.get('/', (req, res) => {
         getUserInfo: 'GET /userinfo'
       },
       status: {
-        upload: 'POST /api/status'
+        upload: 'POST /api/status',
+        getCurrent: 'POST /api/getCurrentStatus'  // ✅ Added this line
       },
     },
   });

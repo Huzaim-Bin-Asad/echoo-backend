@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db-create');
 
-router.post('/', async (req, res) => {
+router.post('/status', async (req, res) => {
   console.log('Received request to upload status:', req.body);
 
   const {
