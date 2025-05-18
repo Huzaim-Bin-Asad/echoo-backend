@@ -15,7 +15,6 @@ router.post('/add-contact', async (req, res) => {
   const timestamp = new Date().toISOString();
   const requestId = uuidv4();
 
-  console.log(`[${timestamp}] [${requestId}] ➕ Contact creation request received`);
 
   if (!sender_id || !contact_name) {
     const errorMsg = 'Missing required fields: ' + 
@@ -40,7 +39,6 @@ router.post('/add-contact', async (req, res) => {
 
       if (result.rows.length > 0) {
         receiver_id = result.rows[0].user_id;
-        console.log(`[${timestamp}] [${requestId}] 🧩 Matched receiver user ID: ${receiver_id}`);
       } else {
         console.warn(`[${timestamp}] [${requestId}] ❌ No user found matching both email and username`);
         return res.status(404).json({
@@ -76,10 +74,8 @@ router.post('/add-contact', async (req, res) => {
   const values = [contact_id, sender_id, sender_id, receiver_id, contact_name];
   
 
-    console.log(`[${timestamp}] [${requestId}] 🛠️ Inserting contact`);
     const result = await pool.query(query, values);
 
-    console.log(`[${timestamp}] [${requestId}] ✅ Contact created successfully`);
     res.status(201).json({
       status: 'success',
       data: result.rows[0],
@@ -107,7 +103,6 @@ router.post('/check-email', async (req, res) => {
   const timestamp = new Date().toISOString();
   const requestId = uuidv4();
 
-  console.log(`[${timestamp}] [${requestId}] 📧 Email lookup request received`);
 
   if (!email) {
     console.warn(`[${timestamp}] [${requestId}] ❌ Missing email parameter`);
@@ -124,7 +119,6 @@ router.post('/check-email', async (req, res) => {
     );
 
     if (result.rows.length > 0) {
-      console.log(`[${timestamp}] [${requestId}] ✅ User found`);
       return res.status(200).json({
         status: 'success',
         exists: true,
@@ -134,7 +128,6 @@ router.post('/check-email', async (req, res) => {
       });
     }
 
-    console.log(`[${timestamp}] [${requestId}] ℹ️ No user found with this email`);
     res.status(200).json({
       status: 'success',
       exists: false,
@@ -161,7 +154,6 @@ router.post('/check-username', async (req, res) => {
   const timestamp = new Date().toISOString();
   const requestId = uuidv4();
 
-  console.log(`[${timestamp}] [${requestId}] 👤 Username lookup request received`);
 
   if (!username) {
     console.warn(`[${timestamp}] [${requestId}] ❌ Missing username parameter`);
@@ -178,7 +170,6 @@ router.post('/check-username', async (req, res) => {
     );
 
     if (result.rows.length > 0) {
-      console.log(`[${timestamp}] [${requestId}] ✅ User found`);
       return res.status(200).json({
         status: 'success',
         exists: true,
@@ -188,7 +179,6 @@ router.post('/check-username', async (req, res) => {
       });
     }
 
-    console.log(`[${timestamp}] [${requestId}] ℹ️ No user found with this username`);
     res.status(200).json({
       status: 'success',
       exists: false,

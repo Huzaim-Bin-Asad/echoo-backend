@@ -77,7 +77,6 @@ const handleSocketMessage = async (socket, message, clients) => {
         socket.close(1008, 'Invalid user_id');
         return;
       }
-      console.log(`User identified: ${message.user_id}`);
       clients.set(message.user_id, socket);
       socket.send(JSON.stringify({ type: 'identified', payload: { user_id: message.user_id } }));
       return;
@@ -89,11 +88,7 @@ const handleSocketMessage = async (socket, message, clients) => {
     }
 
     if (type === 'send_message') {
-      console.log("📩 Incoming message:", {
-        contact_id, sender_id, receiver_id,
-        message_text: message_text?.slice(0, 20) + "...", temp_id
-      });
-
+ 
       if (![contact_id, sender_id, receiver_id, message_text, temp_id].every(Boolean)) {
         console.error('Missing required fields for send_message:', { contact_id, sender_id, receiver_id, message_text, temp_id });
         socket.send(JSON.stringify({
@@ -266,7 +261,6 @@ ws.on('close', (code, reason) => {
   for (const [userId, socket] of clients.entries()) {
     if (socket === ws) {
       clients.delete(userId);
-      console.log(`🚪 User ${userId} disconnected. Code: ${code}, Reason: ${reason || 'Unknown'}`);
       break;
     }
   }

@@ -119,14 +119,10 @@ app.post('/signup', upload.single('profilePicture'), async (req, res) => {
 
   if (req.file) {
     try {
-      console.log('Uploading profile picture to ImageKit...');
       const uploadResult = await uploadToImageKit(req.file.buffer, `${username}-profile.jpg`);
-      console.log('Uploaded file to ImageKit:', uploadResult);
 
       profilePictureUrl = uploadResult.url;
-      console.log('Upload successful! ImageKit URL:', profilePictureUrl);
     } catch (uploadErr) {
-      console.error('Failed to upload profile picture to ImageKit:', uploadErr);
       return res.status(500).json({ message: 'Profile picture upload failed' });
     }
   }
@@ -218,7 +214,6 @@ app.post('/login', async (req, res) => {
 // Protected Profile Route with enhanced JWT logging
 app.get('/profile', async (req, res) => {
   const authHeader = req.headers.authorization;
-  console.log('[PROFILE] Authorization header:', authHeader);
 
   try {
     if (!authHeader) {
@@ -232,9 +227,7 @@ app.get('/profile', async (req, res) => {
       return res.status(401).json({ message: 'Authentication token missing' });
     }
 
-    console.log('[PROFILE] Verifying token...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('[PROFILE] Token successfully decoded:', decoded);
 
     const result = await pool.query(
       `SELECT user_id, username, email, full_name, gender, profile_picture
@@ -248,7 +241,6 @@ app.get('/profile', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    console.log('[PROFILE] User fetched successfully for:', decoded.username || decoded.user_id);
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error('[PROFILE] Error verifying or decoding JWT:', err);

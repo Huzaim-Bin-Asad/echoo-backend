@@ -11,10 +11,8 @@ cron.schedule(
       );
 
       if (result.rowCount > 0) {
-        console.log(`[${now.toISOString()}] Deleted ${result.rowCount} expired status(es).`);
       }
     } catch (err) {
-      console.error('Error deleting expired statuses:', err);
     }
   },
   {
