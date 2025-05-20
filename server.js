@@ -16,7 +16,9 @@ const getContactInfo = require('./api/getContactInfo');
 const statusRoutes = require('./api/status');
 const getCurrentStatusRoutes = require('./api/getCurrentStatus');
 const getCurrentAllStatusRoutes = require('./api/getCurrentAllStatus');
+const contactStatusRoutes = require('./api/getContactsStatuses');
 require('./api/statusCleaner');
+
 
 const { handleSocketMessage } = require('./api/handleSocketMessage');  
 
@@ -36,6 +38,7 @@ app.use('/api', updateProfilePicture);
 app.use('/api', userUpdate);
 app.use('/api', getContactInfo);
 app.use('/api', statusRoutes);
+app.use('/api', contactStatusRoutes); // or any base path you want
 
 const startServer = async () => {
   try {

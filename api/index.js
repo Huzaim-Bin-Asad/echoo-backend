@@ -57,7 +57,10 @@ app.get('/', (req, res) => {
       },
       status: {
         upload: 'POST /api/status',
-        getCurrent: 'POST /api/getCurrentStatus'  // ✅ Added this line
+        getCurrent: 'POST /api/getCurrentStatus',
+        getAllStatuses: 'POST /api/getAllStatuses',           // ✅ Added
+        getMediaByUrl: 'POST /api/getMediaByUrl',             // ✅ Added
+        getContactsStatuses: 'POST /api/get-contacts-statuses'// ✅ Added
       },
     },
   });

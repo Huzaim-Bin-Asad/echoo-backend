@@ -25,7 +25,6 @@ router.post('/getAllStatuses', async (req, res) => {
       media_url: status.media_url,
     }));
 
-    console.info(`[getAllStatuses] Found ${statuses.length} statuses for user_id=${user_id}`);
     res.json({ statuses }); // ✅ Always return 200 OK with array
   } catch (error) {
     console.error('[getAllStatuses] DB error:', error);
