@@ -8,19 +8,16 @@ const mime = require('mime-types'); // Add mime-types package
 // Helper function to fetch and stream Mega.nz file
 async function getMegaFileStream(megaUrl) {
   try {
-    console.log(`[Mega] Initializing file fetch for ${megaUrl}`);
     const file = File.fromURL(megaUrl);
 
     // Load file metadata
     await file.loadAttributes();
-    console.log(`[Mega] Loaded attributes for ${file.name}, size: ${file.size}`);
 
     // Determine MIME type
     let mimeType = file.attributes.mimeType;
     if (!mimeType || mimeType === 'application/octet-stream') {
       // Fallback to inferring MIME type from file extension
       mimeType = mime.lookup(file.name) || 'application/octet-stream';
-      console.log(`[Mega] Inferred MIME type for ${file.name}: ${mimeType}`);
     }
 
     // Create a readable stream for the file
@@ -57,7 +54,6 @@ router.get('/media/:statusId', async (req, res) => {
       return res.status(400).json({ error: 'No media URL available' });
     }
 
-    console.log(`[Media] Fetching media for status_id: ${statusId}, URL: ${media_url}`);
 
     // Fetch the Mega.nz file stream
     const { stream: fileStream, mimeType } = await getMegaFileStream(media_url);
@@ -81,7 +77,6 @@ router.get('/media/:statusId', async (req, res) => {
 });
 
 router.post('/get-contacts-statuses', async (req, res) => {
-  console.log("📥 [1] Received POST request to /get-contacts-statuses");
 
   const { user_id, cachedMediaUrls = [] } = req.body;
 
@@ -90,8 +85,6 @@ router.post('/get-contacts-statuses', async (req, res) => {
     return res.status(400).json({ error: 'user_id is required' });
   }
 
-  console.log(`✅ [3] user_id received: ${user_id}`);
-  console.log(`📦 [4] Received ${cachedMediaUrls.length} cached media URLs`);
 
   try {
     const contactsQuery = `
@@ -102,14 +95,12 @@ router.post('/get-contacts-statuses', async (req, res) => {
     const { rows: contacts } = await pool.query(contactsQuery, [user_id]);
 
     if (!contacts.length) {
-      console.log("ℹ️ [5] No contacts found for this user.");
       return res.json({ statuses: [] });
     }
 
     const receiverIds = contacts.map(c => c.receiver_id);
     const contactNameMap = Object.fromEntries(contacts.map(c => [c.receiver_id, c.contact_name]));
 
-    console.log(`📦 [6] Found ${receiverIds.length} receiver IDs.`);
 
     const statusQuery = `
       SELECT status_id, user_id, caption, timestamp, media_url
@@ -119,7 +110,6 @@ router.post('/get-contacts-statuses', async (req, res) => {
     `;
     const { rows: statuses } = await pool.query(statusQuery, [receiverIds]);
 
-    console.log(`📄 [7] Retrieved ${statuses.length} statuses.`);
 
     // Filter out statuses with cached media URLs to avoid redundant downloads
     const enrichedStatuses = await Promise.all(
@@ -127,7 +117,6 @@ router.post('/get-contacts-statuses', async (req, res) => {
         const proxiedUrl = `http://localhost:5000/api/media/${status.status_id}`;
 
         if (cachedMediaUrls.includes(proxiedUrl)) {
-          console.log(`[Media] Skipping fetch for cached media_url: ${proxiedUrl}`);
           return {
             ...status,
             contactName: contactNameMap[status.user_id] || null,
@@ -145,9 +134,7 @@ router.post('/get-contacts-statuses', async (req, res) => {
       })
     );
 
-    console.log("🔗 [8] Sample enriched status:");
     enrichedStatuses.slice(0, 3).forEach((s, i) => {
-      console.log(`   ${i + 1}. status_id: ${s.status_id}, user_id: ${s.user_id}, contactName: ${s.contactName}, media_url: ${s.media_url}, isCached: ${s.isCached}`);
     });
 
     return res.json({ statuses: enrichedStatuses });
