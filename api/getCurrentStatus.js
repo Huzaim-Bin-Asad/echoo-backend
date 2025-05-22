@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db-create');
-const mega = require('megajs'); // ✅ Fix: Import megajs
+const mega = require('megajs');
 
 router.post('/getCurrentStatus', async (req, res) => {
-  const { user_id } = req.body;
+  const { user_id, originalMediaUrl, isCached } = req.body;
 
   if (!user_id) {
     return res.status(400).json({ message: 'user_id is required' });
@@ -17,6 +17,7 @@ router.post('/getCurrentStatus', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      console.log(`[INFO] No status found for user_id: ${user_id}`);
       return res.status(404).json({ message: 'No status found' });
     }
 
@@ -24,11 +25,22 @@ router.post('/getCurrentStatus', async (req, res) => {
     const mediaUrl = status.media_url;
 
     if (!mediaUrl) {
+      console.log(`[INFO] No media URL found for user_id: ${user_id}`);
       return res.status(404).json({ message: 'No media URL found' });
+    }
+
+    // Check if frontend cache matches the latest media URL
+    if (isCached && originalMediaUrl === mediaUrl) {
+      // Frontend already has the latest status media
+      // Send 204 No Content (no new data to send)
+      return res.status(204).end();
+      // Or alternatively:
+      // return res.status(200).json({ message: 'Already have latest media' });
     }
 
     const match = mediaUrl.match(/mega\.nz\/file\/([^#]+)#(.+)/);
     if (!match) {
+      console.log(`[ERROR] Invalid Mega.nz URL format for mediaUrl: ${mediaUrl}`);
       return res.status(400).json({ message: 'Invalid Mega.nz URL format' });
     }
 
@@ -42,14 +54,6 @@ router.post('/getCurrentStatus', async (req, res) => {
         return res.status(500).json({ message: 'Error loading file attributes' });
       }
 
-      // Allow frontend JS to read the custom header
-      res.setHeader('Access-Control-Expose-Headers', 'X-Status-Timestamp');
-
-      const timestampMs = new Date(status.timestamp).getTime();
-
-      res.setHeader('X-Status-Timestamp', String(timestampMs));
-      res.setHeader('Content-Length', file.size);
-
       const ext = file.name.split('.').pop().toLowerCase();
       const mimeTypes = {
         jpg: 'image/jpeg',
@@ -61,6 +65,14 @@ router.post('/getCurrentStatus', async (req, res) => {
         webm: 'video/webm',
       };
       const contentType = mimeTypes[ext] || 'application/octet-stream';
+      const timestampMs = new Date(status.timestamp).getTime();
+
+
+
+      res.setHeader('Access-Control-Expose-Headers', 'X-Status-Timestamp, X-Status-MediaURL');
+      res.setHeader('X-Status-Timestamp', String(timestampMs));
+      res.setHeader('X-Status-MediaURL', mediaUrl);
+      res.setHeader('Content-Length', file.size);
       res.setHeader('Content-Type', contentType);
 
       const stream = file.download();
